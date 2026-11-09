@@ -1,11 +1,9 @@
 /**
  * auth.js - Modul autentikasi & manajemen peran (Role Selector) untuk WebGIS Surabaya.
  *
- * Mendukung:
- *  - Pilihan peran melalui Modal Role Selector:
- *      - 'admin'   -> Badge "Halo, 1. Admin"
- *      - 'anggota' -> Badge "Halo, 2. Anggota"
- *  - Login Admin melalui halaman login.html (tetap berfungsi untuk pengujian Katalon)
+ * Aturan Hak Akses:
+ *  - Peran 'anggota' (2. Anggota) bisa langsung dipilih tanpa login.
+ *  - Peran 'admin' (1. Admin) WAJIB melalui halaman login.html terlebih dahulu.
  */
 const Auth = (function () {
     const DEMO_ACCOUNT = {
@@ -43,27 +41,33 @@ const Auth = (function () {
     }
 
     function setRole(role) {
-        const normalized = role === 'admin' ? 'admin' : 'anggota';
-        sessionStorage.setItem(ROLE_KEY, normalized);
-        if (normalized === 'admin') {
-            sessionStorage.setItem(SESSION_KEY, '1. Admin');
-        } else {
-            sessionStorage.removeItem(SESSION_KEY);
+        if (role === 'admin') {
+            // Hanya izinkan peran admin jika sudah melewati login
+            if (!isLoggedIn()) {
+                return 'require_login';
+            }
+            sessionStorage.setItem(ROLE_KEY, 'admin');
+            return 'admin';
         }
-        return normalized;
+        // Jika beralih ke anggota, hapus sesi login admin agar kalau mau ke admin lagi harus login ulang
+        sessionStorage.removeItem(SESSION_KEY);
+        sessionStorage.setItem(ROLE_KEY, 'anggota');
+        return 'anggota';
     }
 
     function getRole() {
-        return sessionStorage.getItem(ROLE_KEY);
+        if (isLoggedIn() && sessionStorage.getItem(ROLE_KEY) === 'admin') {
+            return 'admin';
+        }
+        return sessionStorage.getItem(ROLE_KEY) === 'anggota' ? 'anggota' : null;
     }
 
     function hasSelectedRole() {
-        return !!sessionStorage.getItem(ROLE_KEY);
+        return !!getRole();
     }
 
     function getRoleBadgeText() {
-        const role = getRole();
-        if (role === 'admin' || isLoggedIn()) {
+        if (getRole() === 'admin') {
             return 'Halo, 1. Admin';
         }
         return 'Halo, 2. Anggota';
@@ -84,7 +88,7 @@ const Auth = (function () {
     }
 
     function isLoggedIn() {
-        return getRole() === 'admin' || !!getUser();
+        return !!getUser();
     }
 
     return {

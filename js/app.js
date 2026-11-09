@@ -323,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 12. HALAMAN MULAI & MODAL ROLE SELECTOR + HAK AKSES
     // =========================================================
     function updateAuthUI() {
-        const isAdmin = Auth.getRole() === 'admin' || Auth.isLoggedIn();
+        const isAdmin = Auth.getRole() === 'admin' && Auth.isLoggedIn();
         const badgeText = isAdmin ? 'Halo, 1. Admin' : 'Halo, 2. Anggota';
 
         $('user-greeting').textContent = badgeText;
@@ -341,31 +341,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyRoleSelection(role) {
-        const selected = Auth.setRole(role);
+        if (role === 'admin') {
+            // Jika belum login, arahkan terlebih dahulu ke halaman login.html
+            if (!Auth.isLoggedIn()) {
+                // Tandai sesi sementara sebagai anggota supaya jika klik "Kembali ke peta" tidak terjebak di start screen
+                sessionStorage.setItem('webgis_surabaya_role', 'anggota');
+                window.location.href = 'login.html';
+                return;
+            }
+            Auth.setRole('admin');
+            $('start-screen').classList.add('hidden');
+            $('modal-role').classList.add('hidden');
+            updateAuthUI();
+            showToast('Peran aktif: Halo, 1. Admin (Akses Penuh)', 'success');
+            return;
+        }
+
+        Auth.setRole('anggota');
         $('start-screen').classList.add('hidden');
         $('modal-role').classList.add('hidden');
         updateAuthUI();
-
-        if (selected === 'admin') {
-            showToast('Peran aktif: Halo, 1. Admin (Akses Penuh)', 'success');
-        } else {
-            closeModal();
-            showToast('Peran aktif: Halo, 2. Anggota (Mode Lihat & Cari)', 'info');
-        }
+        closeModal();
+        showToast('Peran aktif: Halo, 2. Anggota (Mode Lihat & Cari)', 'info');
     }
 
     function initStartAndRoleFlow() {
         const params = new URLSearchParams(window.location.search);
         if (params.get('login') === 'success' && Auth.isLoggedIn()) {
             Auth.setRole('admin');
+            $('start-screen').classList.add('hidden');
+            $('modal-role').classList.add('hidden');
             updateAuthUI();
             showToast('Login berhasil! Selamat datang, 1. Admin.', 'success');
             history.replaceState(null, '', window.location.pathname);
-            return;
-        }
-
-        if (params.get('role') === 'admin' || params.get('role') === 'anggota') {
-            applyRoleSelection(params.get('role'));
             return;
         }
 
