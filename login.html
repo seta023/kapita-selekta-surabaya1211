@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Admin - WebGIS Surabaya</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            overflow: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e293b 0%, #1e3a8a 100%);
+        }
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            padding: 32px 30px;
+            background: rgba(255, 255, 255, 0.97);
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 18px;
+        }
+        .login-header i {
+            font-size: 2.6rem;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+        .login-header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            color: var(--dark);
+        }
+        .login-header p {
+            color: #64748b;
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+        .demo-account {
+            background: #eff6ff;
+            border: 1px dashed #93c5fd;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.8rem;
+            color: #1e40af;
+            margin-bottom: 6px;
+        }
+        .demo-account code {
+            font-weight: 700;
+            background: #dbeafe;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+        .password-wrapper {
+            position: relative;
+        }
+        .password-wrapper .form-control {
+            padding-right: 42px;
+        }
+        .password-wrapper .icon-btn {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .btn-block {
+            width: 100%;
+            margin-top: 18px;
+            padding: 11px;
+            font-size: 0.95rem;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.85rem;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="login-card glass-panel">
+        <div class="login-header">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <h1 id="login-title">Login Admin</h1>
+            <p>WebGIS Fasilitas Darurat &amp; Keuangan Surabaya</p>
+        </div>
+
+        <div class="demo-account" id="demo-account">
+            <i class="fa-solid fa-circle-info"></i> Akun demo &mdash;
+            Username: <code>admin</code> &nbsp; Password: <code>Surabaya123</code>
+        </div>
+
+        <form id="login-form" novalidate>
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" class="form-control" placeholder="Masukkan username" autocomplete="username">
+
+            <label for="password">Password</label>
+            <div class="password-wrapper">
+                <input type="password" id="password" name="password" class="form-control" placeholder="Masukkan password" autocomplete="current-password">
+                <button type="button" id="btn-toggle-password" class="icon-btn" title="Tampilkan / sembunyikan password">
+                    <i class="fa-solid fa-eye"></i>
+                </button>
+            </div>
+
+            <div id="login-error" class="message msg-error hidden"></div>
+
+            <button type="submit" id="btn-login" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-right-to-bracket"></i> Login
+            </button>
+        </form>
+
+        <a href="index.html" id="link-back" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i> Kembali ke peta
+        </a>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/login.js"></script>
+</body>
+</html>
