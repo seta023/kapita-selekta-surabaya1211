@@ -3,15 +3,19 @@
  *
  * Fitur:
  *  1. Peta interaktif fasilitas Darurat & Keuangan (Leaflet + MarkerCluster)
- *  2. Pencarian fasilitas (dengan validasi input)          -> uji positif & negatif
- *  3. Tambah fasilitas baru oleh admin (dengan validasi)   -> uji positif & negatif
- *     (login admin ada di login.html / js/login.js)
+ *  2. Basemap Dark Mode bebas watermark "API KEY REQUIRED" + OpenStreetMap
+ *  3. Halaman Mulai (Start Screen) -> Modal Role Selector (1. Admin / 2. Anggota)
+ *  4. Pembatasan Hak Akses (Role-Based Access Control):
+ *     - 1. Admin   : Badge "Halo, 1. Admin", tombol "+ Tambah Fasilitas", dan "Form Kelola Admin"
+ *     - 2. Anggota : Badge "Halo, 2. Anggota", sembunyikan fitur tambah fasilitas & kelola admin
+ *  5. Pencarian fasilitas & Tambah fasilitas (dengan validasi positif & negatif)
  */
 document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     // 0. Konstanta & helper
     // =========================================================
     const STORAGE_KEY = 'webgis_surabaya_fasilitas_baru';
+    const ADMIN_CONFIG_KEY = 'webgis_surabaya_admin_config';
     const MAX_RESULTS = 50;
     const TYPE_LABEL = {
         emergency: 'Fasilitas Darurat & Keamanan',
@@ -59,9 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hideLoader() {
         const loader = $('loader');
-        loader.style.pointerEvents = 'none'; // supaya tidak menghalangi klik (penting untuk Katalon)
+        loader.style.pointerEvents = 'none';
         loader.style.opacity = '0';
-        setTimeout(() => { loader.style.display = 'none'; }, 600);
+        setTimeout(() => { loader.style.display = 'none'; }, 500);
     }
 
     function showLoaderError(message) {
@@ -82,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const map = L.map('map', {
         zoomControl: false,
         attributionControl: false
-    }).setView([-7.250445, 112.768845], 12); // Centered on Surabaya
+    }).setView([-7.250445, 112.768845], 12);
 
     // 2. Map Controls
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
@@ -91,16 +95,22 @@ document.addEventListener('DOMContentLoaded', () => {
         prefix: 'Created with <i class="fa-solid fa-heart" style="color: #ef4444;"></i> using Leaflet | &copy; OpenStreetMap'
     }).addTo(map);
 
-    // 3. Basemaps
+    // 3. Basemaps (Tanpa watermark "API KEY REQUIRED")
+    // Dark Mode Basemap (bebas watermark API KEY REQUIRED, tajam & cepat)
+    const darkMatter = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        className: 'dark-basemap-tiles',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Dark Theme'
+    });
+
+    // OpenStreetMap Standard (Terang)
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     });
-    const darkMatter = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>'
-    });
-    osm.addTo(map);
+
+    // Aktifkan Dark Mode secara default (bebas watermark)
+    darkMatter.addTo(map);
 
     // 4. Custom Icons
     const createDotIcon = (color, size = 16) => L.divIcon({
@@ -197,7 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     // 8. Load data fasilitas + indeks pencarian
     // =========================================================
-    /** @type {{name:string, label:string, type:string, layer:L.Layer, cluster:L.MarkerClusterGroup, searchText:string}[]} */
     const searchIndex = [];
 
     function registerLayer(layer, name, label, type) {
@@ -231,13 +240,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Batas wilayah Surabaya (dipakai juga untuk validasi koordinat)
     const boundaryGeometry = window.SURABAYA_BOUNDARY || null;
     let boundaryLayer = null;
     if (boundaryGeometry) {
         boundaryLayer = L.geoJSON(boundaryGeometry, {
             interactive: false,
-            style: { color: '#2563eb', weight: 2, dashArray: '6 6', fill: false }
+            style: { color: '#38bdf8', weight: 2.5, dashArray: '6 6', fill: false }
         }).addTo(map);
     }
 
@@ -245,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
         map.addLayer(clusters.emergency);
         map.addLayer(clusters.financial);
 
-        // Fasilitas tambahan dari admin (tersimpan di localStorage)
         getSavedFacilities().forEach((f) => addUserFacilityToMap(f));
 
         const bounds = boundaryLayer ? boundaryLayer.getBounds()
@@ -254,26 +261,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Layer Control
         const baseMaps = {
-            'OpenStreetMap': osm,
-            'Dark Mode (Carto)': darkMatter
+            'Dark Mode (Tanpa Watermark)': darkMatter,
+            'OpenStreetMap (Terang)': osm
         };
         const overlayMaps = {
             "<span style='color:#ef4444; font-weight:600;'><i class='fa-solid fa-truck-medical' style='width:20px'></i> Darurat &amp; Keamanan</span>": clusters.emergency,
             "<span style='color:#10b981; font-weight:600;'><i class='fa-solid fa-building-columns' style='width:20px'></i> Finansial &amp; Bank</span>": clusters.financial
         };
         if (boundaryLayer) {
-            overlayMaps["<span style='color:#2563eb; font-weight:600;'><i class='fa-solid fa-draw-polygon' style='width:20px'></i> Batas Kota Surabaya</span>"] = boundaryLayer;
+            overlayMaps["<span style='color:#0284c7; font-weight:600;'><i class='fa-solid fa-draw-polygon' style='width:20px'></i> Batas Kota Surabaya</span>"] = boundaryLayer;
         }
         L.control.layers(baseMaps, overlayMaps, { position: 'topright', collapsed: false }).addTo(map);
 
         hideLoader();
+        initStartAndRoleFlow();
     }
 
     if (window.SURABAYA_GEOJSON) {
         loadFacilities(window.SURABAYA_GEOJSON);
         finishSetup();
     } else {
-        // Fallback: ambil file GeoJSON (hanya berhasil jika dijalankan lewat web server)
         fetch('data/kapita_selekta_surabaya1211.geojson')
             .then((response) => {
                 if (!response.ok) throw new Error('HTTP error ' + response.status);
@@ -313,14 +320,171 @@ document.addEventListener('DOMContentLoaded', () => {
     legend.addTo(map);
 
     // =========================================================
-    // 12. FITUR PENCARIAN FASILITAS
+    // 12. HALAMAN MULAI & MODAL ROLE SELECTOR + HAK AKSES
+    // =========================================================
+    function updateAuthUI() {
+        const isAdmin = Auth.getRole() === 'admin' || Auth.isLoggedIn();
+        const badgeText = isAdmin ? 'Halo, 1. Admin' : 'Halo, 2. Anggota';
+
+        $('user-greeting').textContent = badgeText;
+        $('user-greeting').classList.remove('hidden');
+
+        // Jika Admin: tampilkan tombol "+ Tambah Fasilitas" dan "Form Kelola Admin"
+        // Jika Anggota: sembunyikan fitur tambah fasilitas & form kelola admin
+        $('btn-tambah').classList.toggle('hidden', !isAdmin);
+        $('btn-kelola-admin').classList.toggle('hidden', !isAdmin);
+        $('admin-panel').classList.toggle('hidden', !isAdmin);
+
+        // Tombol Login Admin & Logout
+        $('btn-nav-login').classList.toggle('hidden', isAdmin);
+        $('btn-logout').classList.toggle('hidden', !isAdmin);
+    }
+
+    function applyRoleSelection(role) {
+        const selected = Auth.setRole(role);
+        $('start-screen').classList.add('hidden');
+        $('modal-role').classList.add('hidden');
+        updateAuthUI();
+
+        if (selected === 'admin') {
+            showToast('Peran aktif: Halo, 1. Admin (Akses Penuh)', 'success');
+        } else {
+            closeModal();
+            showToast('Peran aktif: Halo, 2. Anggota (Mode Lihat & Cari)', 'info');
+        }
+    }
+
+    function initStartAndRoleFlow() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('login') === 'success' && Auth.isLoggedIn()) {
+            Auth.setRole('admin');
+            updateAuthUI();
+            showToast('Login berhasil! Selamat datang, 1. Admin.', 'success');
+            history.replaceState(null, '', window.location.pathname);
+            return;
+        }
+
+        if (params.get('role') === 'admin' || params.get('role') === 'anggota') {
+            applyRoleSelection(params.get('role'));
+            return;
+        }
+
+        // Saat pertama kali membuka web (belum memilih role di sesi ini),
+        // tampilkan Halaman Mulai lalu lanjut ke Modal Role Selector
+        if (!Auth.hasSelectedRole()) {
+            $('start-screen').classList.remove('hidden');
+        } else {
+            updateAuthUI();
+        }
+    }
+
+    // Klik "Mulai Eksplorasi" pada Halaman Mulai -> buka Modal Role Selector
+    $('btn-mulai').addEventListener('click', () => {
+        $('start-screen').classList.add('hidden');
+        $('modal-role').classList.remove('hidden');
+    });
+
+    // Klik Option 1: Admin
+    $('btn-role-admin').addEventListener('click', () => {
+        applyRoleSelection('admin');
+    });
+
+    // Klik Option 2: Anggota
+    $('btn-role-anggota').addEventListener('click', () => {
+        applyRoleSelection('anggota');
+    });
+
+    // Tombol "Ganti Peran" di Navbar -> buka kembali Modal Role Selector
+    $('btn-ganti-peran').addEventListener('click', () => {
+        $('modal-role').classList.remove('hidden');
+    });
+
+    // Tombol Logout (kembali ke peran 2. Anggota)
+    $('btn-logout').addEventListener('click', () => {
+        Auth.logout();
+        updateAuthUI();
+        closeModal();
+        showToast('Anda berhasil logout. Peran beralih ke 2. Anggota.', 'info');
+    });
+
+    // =========================================================
+    // 13. FORM KELOLA ADMIN (Khusus 1. Admin)
+    // =========================================================
+    function loadAdminConfig() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(ADMIN_CONFIG_KEY));
+            if (saved) {
+                $('admin-input-nama').value = saved.nama || '';
+                $('admin-input-kode').value = saved.kode || '';
+                $('admin-select-status').value = saved.status || 'Aktif - Normal';
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+    loadAdminConfig();
+
+    $('btn-kelola-admin').addEventListener('click', () => {
+        const panel = $('admin-panel');
+        panel.classList.remove('hidden');
+        panel.classList.remove('collapsed');
+        $('admin-input-nama').focus();
+    });
+
+    $('btn-toggle-admin-panel').addEventListener('click', () => {
+        const panel = $('admin-panel');
+        panel.classList.toggle('collapsed');
+        $('btn-toggle-admin-panel').innerHTML = panel.classList.contains('collapsed')
+            ? '<i class="fa-solid fa-chevron-down"></i>'
+            : '<i class="fa-solid fa-chevron-up"></i>';
+    });
+
+    $('form-kelola-admin').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const namaInput = $('admin-input-nama');
+        const kodeInput = $('admin-input-kode');
+        const statusSelect = $('admin-select-status');
+        const msgBox = $('admin-form-message');
+
+        namaInput.classList.remove('is-invalid');
+        kodeInput.classList.remove('is-invalid');
+
+        const nama = namaInput.value.trim();
+        const kode = kodeInput.value.trim();
+        const status = statusSelect.value;
+
+        if (nama === '') {
+            namaInput.classList.add('is-invalid');
+            showMessage(msgBox, 'Nama penanggung jawab wajib diisi!', 'error');
+            return;
+        }
+        if (kode === '') {
+            kodeInput.classList.add('is-invalid');
+            showMessage(msgBox, 'Kode otorisasi admin wajib diisi!', 'error');
+            return;
+        }
+        if (kode.length < 4) {
+            kodeInput.classList.add('is-invalid');
+            showMessage(msgBox, 'Kode otorisasi minimal 4 karakter!', 'error');
+            return;
+        }
+
+        localStorage.setItem(ADMIN_CONFIG_KEY, JSON.stringify({ nama, kode, status }));
+        showMessage(msgBox, `Pengaturan admin "${nama}" (${status}) berhasil disimpan!`, 'success');
+        showToast('Pengaturan Form Kelola Admin berhasil diperbarui!', 'success');
+    });
+
+    $('btn-hapus-data-baru').addEventListener('click', () => {
+        localStorage.removeItem(STORAGE_KEY);
+        showMessage($('admin-form-message'), 'Data fasilitas tambahan berhasil di-reset. Muat ulang halaman untuk melihat data awal.', 'success');
+        showToast('Data fasilitas tambahan di-reset.', 'info');
+    });
+
+    // =========================================================
+    // 14. FITUR PENCARIAN FASILITAS
     // =========================================================
     const VALID_KEYWORD = /^[A-Za-z0-9\s.\-&'()]+$/;
 
-    /**
-     * Validasi kata kunci pencarian.
-     * @returns {string|null} pesan error, atau null jika valid
-     */
     function validateKeyword(keyword) {
         if (keyword === '') return 'Kata kunci pencarian wajib diisi!';
         if (keyword.length < 3) return 'Kata kunci minimal 3 karakter!';
@@ -330,13 +494,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function focusOnLayer(entry) {
         const { layer, cluster } = entry;
-        if (!map.hasLayer(cluster)) map.addLayer(cluster); // tampilkan layer jika sedang disembunyikan
+        if (!map.hasLayer(cluster)) map.addLayer(cluster);
 
         if (typeof layer.getLatLng === 'function') {
-            // Marker di dalam cluster
             cluster.zoomToShowLayer(layer, () => layer.openPopup());
         } else {
-            // Polygon (bangunan)
             map.fitBounds(layer.getBounds(), { maxZoom: 18 });
             layer.openPopup(layer.getBounds().getCenter());
         }
@@ -420,34 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // =========================================================
-    // 13. AUTENTIKASI (tampilan navbar)
-    // =========================================================
-    function updateAuthUI() {
-        const loggedIn = Auth.isLoggedIn();
-        $('btn-nav-login').classList.toggle('hidden', loggedIn);
-        $('user-greeting').classList.toggle('hidden', !loggedIn);
-        $('btn-tambah').classList.toggle('hidden', !loggedIn);
-        $('btn-logout').classList.toggle('hidden', !loggedIn);
-        $('user-greeting').textContent = loggedIn ? 'Halo, ' + Auth.getUser() : '';
-    }
-    updateAuthUI();
-
-    // Notifikasi setelah redirect dari halaman login
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('login') === 'success' && Auth.isLoggedIn()) {
-        showToast('Login berhasil! Selamat datang, ' + Auth.getUser() + '.', 'success');
-        history.replaceState(null, '', window.location.pathname);
-    }
-
-    $('btn-logout').addEventListener('click', () => {
-        Auth.logout();
-        updateAuthUI();
-        closeModal();
-        showToast('Anda berhasil logout.', 'info');
-    });
-
-    // =========================================================
-    // 14. FITUR TAMBAH FASILITAS (khusus admin)
+    // 15. FITUR TAMBAH FASILITAS (Khusus 1. Admin)
     // =========================================================
     function getSavedFacilities() {
         try {
@@ -471,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
             latitude: f.lat,
             longitude: f.lng,
             keterangan: f.keterangan,
-            ditambahkan_oleh: 'Admin (' + f.tanggal + ')'
+            ditambahkan_oleh: '1. Admin (' + f.tanggal + ')'
         };
         marker.bindPopup(createPopupContent(props, f.kategori));
         clusters[f.kategori].addLayer(marker);
@@ -487,7 +622,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return entry;
     }
 
-    /** Ray-casting: apakah titik [lng, lat] berada di dalam ring polygon */
     function pointInRing(lng, lat, ring) {
         let inside = false;
         for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -501,7 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function isInsideSurabaya(lat, lng) {
-        if (!boundaryGeometry) return true; // jika data batas tidak ada, lewati validasi
+        if (!boundaryGeometry) return true;
         const polygons = boundaryGeometry.type === 'MultiPolygon'
             ? boundaryGeometry.coordinates
             : [boundaryGeometry.coordinates];
@@ -514,10 +648,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const NUMBER_PATTERN = /^-?\d+(\.\d+)?$/;
     const FIELDS = ['input-nama', 'input-kategori', 'input-lat', 'input-lng'];
 
-    /**
-     * Validasi form tambah fasilitas.
-     * @returns {{valid: boolean, message?: string, field?: string|string[], data?: object}}
-     */
     function validateFacilityForm() {
         const nama = $('input-nama').value.trim();
         const kategori = $('input-kategori').value;
@@ -553,7 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openModal() {
         if (!Auth.isLoggedIn()) {
-            showToast('Silakan login sebagai admin terlebih dahulu!', 'error');
+            showToast('Silakan pilih peran 1. Admin terlebih dahulu!', 'error');
             return;
         }
         $('modal-tambah').classList.remove('hidden');
@@ -582,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearFieldErrors();
 
         if (!Auth.isLoggedIn()) {
-            showMessage($('form-message'), 'Sesi login berakhir. Silakan login kembali!', 'error');
+            showMessage($('form-message'), 'Sesi berakhir. Silakan pilih peran 1. Admin kembali!', 'error');
             return;
         }
 
